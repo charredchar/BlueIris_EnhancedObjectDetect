@@ -1,4 +1,9 @@
 """
+
+A HUGE thanks to Smar for the original code and work done in Python 2.7. I have modified and
+updated everything to work on Pythin v3.8.6 with TensorFlow v2.3.0, CV2 v4.4.0.44, numpy v1.16.0
+and paho v1.5.1. All modifications will be under the original code commented out, the original description follows.
+
 This module uses AI image recongition tools to determine whether or not specific
 objects are present in a Blue Iris CCTV snapshot image, and if so, send a notification.
 If objects are found, it further tries to determine whether they are stationary or have moved
@@ -21,10 +26,10 @@ Once objects are detected, notifications from the module are sent back via:
     b.  Telegram
     c.  PushBullet
 
-Note that the code has only been tested on Python 2.7. Additional libraries required include:
+Note that the code has only been tested on Python 3.8.6. Additional libraries required include:
 
     Core libraries:
-        -   cv2:            pip install python-opencv
+        -   cv2:            pip install opencv-python
         -   numpy:          pip install numpy
         -   paho:           pip install paho-mqtt
 
@@ -53,7 +58,8 @@ import time
 import os
 import signal
 import sys
-import httplib
+#import httplib
+import http.client
 from collections import namedtuple
 import paho.mqtt.client as mqtt
 import cv2
@@ -132,7 +138,8 @@ class ImageFrame(object):
         if DEBUG:
             print("[DEBUG] Getting image from BlueIris url: %s" % url)
 
-        resp = urllib.urlopen(url)
+#        resp = urllib.urlopen(url)
+        resp = urllib.request.urlopen(url)
         image = np.asarray(bytearray(resp.read()), dtype="uint8")
         image = cv2.imdecode(image, cv2.IMREAD_UNCHANGED)
         self.timestamp = time.time()
@@ -237,7 +244,8 @@ class Camera(object):
             if self.port:
                 self.url = "".join((self.url, ":", str(self.port)))
 
-            self.url = "".join((self.url, "/image/", self.name))
+#            self.url = "".join((self.url, "/image/", self.name))
+            self.url = "".join((self.url, "/image/livingroom-hdt"))
 
             if self.user_id:
                 self.url = "".join((self.url, "?user=", self.user_id))
@@ -584,14 +592,17 @@ class AIObjectDetector(object):
 
             self.detection_graph = tf.Graph()
             with self.detection_graph.as_default():
-                od_graph_def = tf.GraphDef()
-                with tf.gfile.GFile(self.path_to_ckpt, 'rb') as fid:
+#                od_graph_def = tf.GraphDef()
+                od_graph_def = tf.compat.v1.GraphDef()
+#                with tf.gfile.GFile(self.path_to_ckpt, 'rb') as fid:
+                with tf.compat.v2.io.gfile.GFile(self.path_to_ckpt, 'rb') as fid:
                     serialized_graph = fid.read()
                     od_graph_def.ParseFromString(serialized_graph)
                     tf.import_graph_def(od_graph_def, name='')
 
             self.default_graph = self.detection_graph.as_default()
-            self.sess = tf.Session(graph=self.detection_graph)
+#            self.sess = tf.Session(graph=self.detection_graph)
+            self.sess = tf.compat.v1.Session(graph=self.detection_graph)
 
             # Definite input and output Tensors for detection_graph
             self.image_tensor = self.detection_graph.get_tensor_by_name('image_tensor:0')
@@ -827,7 +838,8 @@ if __name__ == "__main__":
     mqtt_client.on_disconnect = mqtt_on_disconnect
 
     print("Model initalised. Connecting to mqtt server %s" % config.MQTT_SERVER)
-    mqtt_client.connect(config.MQTT_SERVER, port=1883, keepalive=0, bind_address="")
+#    mqtt_client.connect(config.MQTT_SERVER, port=1883, keepalive=0, bind_address="")
+    mqtt_client.connect(config.MQTT_SERVER, port=1883, keepalive=1, bind_address="")
 
     print("Subscribing to mqtt topic '%s'" % config.MQTT_LISTEN_TOPIC)
     mqtt_client.subscribe(config.MQTT_LISTEN_TOPIC)
